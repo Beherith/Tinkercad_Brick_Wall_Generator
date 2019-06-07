@@ -1,8 +1,10 @@
 //Created by Peter Sarkozy (mysterme@gmail.com)
+// https://github.com/Beherith/Tinkercad_Brick_Wall_Generator
+
+
 // catmull-clarke by https://github.com/Erkaman/gl-catmull-clark
 // Convenience Declarations For Dependencies.
 // 'Core' Is Configured In Libraries Section.
-
 
 
 var Conversions = Core.Conversions;
@@ -23,9 +25,15 @@ var Vector3D = Core.Vector3D;
 
 	params = [
 
-		{ "id": "height", "displayName": "Height", "type": "length", "rangeMin": 1.0, "rangeMax": 100.0, "default": 50.0 },
+		{ "id": "bheight", "displayName": "BHeight", "type": "length", "rangeMin": 1.0, "rangeMax": 100.0, "default": 50.0 },
+		{ "id": "bwidth" , "displayName": "BWidth" , "type": "length", "rangeMin": 1.0, "rangeMax": 100.0, "default": 50.0 },
+
+      { "id": "height", "displayName": "Height", "type": "length", "rangeMin": 1.0, "rangeMax": 100.0, "default": 50.0 },
 		{ "id": "width" , "displayName": "Width" , "type": "length", "rangeMin": 1.0, "rangeMax": 100.0, "default": 50.0 },
+
+      
 		{ "id": "depth" , "displayName": "Depth" , "type": "length", "rangeMin": 1.0, "rangeMax": 50.0, "default": 8.0	},
+		{ "id": "bend" , "displayName": "Bend angle" , "type": "length", "rangeMin": 0.0, "rangeMax": 380.0, "default": 0.0	},
 		{ "id": "grout" , "displayName": "Grout to Brick Ratio" , "type": "float" , "rangeMin": 0.0, "rangeMax": 1.0 , "default": 0.1	},
 		
 		{ "id": "rows"		, "displayName": "Rows"	 , "type": "int", "rangeMin": 1, "rangeMax": 40, "default": 5 },
@@ -41,7 +49,7 @@ var Vector3D = Core.Vector3D;
       
         {"id": "smallright",	"displayName": "Small bricks on right", "type": "bool", "default": true},
       
-		{ "id": "smoothsubdiv" , "displayName": "Smooth subdivisons (slow)", "type": "int", "rangeMin": 0, "rangeMax": 4, "default": 2	},
+		{ "id": "smoothsubdiv" , "displayName": "Smooth subdivisons (slow)", "type": "int", "rangeMin": 0, "rangeMax": 4, "default": 0 	},
 		{ "id": "hardsubdiv" , "displayName": "Hard subdivisoins", "type": "int", "rangeMin": 0, "rangeMax": 3, "default": 1	}
 		
 		
@@ -545,6 +553,7 @@ var Vector3D = Core.Vector3D;
 	var totalh = params['height'];
 	var totald = params['depth'];
 	var totalw = params['width'];
+	var bend = params['bend'];
 	var smoothsubdiv = params['smoothsubdiv'];
 	var hardsubdiv = params['hardsubdiv'];
 	var rows = params['rows'];
@@ -611,7 +620,53 @@ var Vector3D = Core.Vector3D;
 	if (dbg) Debug.log("Making solid!");
     var ccresult = {positions: meshgatherer.positions, cells:meshgatherer.cells};
     if (smoothsubdiv > 0) ccresult = catmullClark(meshgatherer.positions, meshgatherer.cells, smoothsubdiv,hardsubdiv); //function catmullClark(positions, cells, numSubdivisions, numHard ) 
+	//http://forums.cgsociety.org/t/math-for-a-bend/1280977/9
+	
+	function mydist(a,b){
+		return Math.sqrt((a[0]-b[0])*(a[0]-b[0]) + (a[1]-b[1])*(a[1]-b[1]) + (a[2] - b[2])*(a[2]-b[2]));
+	}
+	function dumbbend (positions, alpha){
+		var alpharad = 2*3.1415*alpha/360;
+		var radius = totalw / (2*3.1415*alpha/360.0);
+		var pivot = [0,0,-radius];
+		for (var i = 0; i < positions.length; i++){
+			var v = positions[i];
+			var beta = alpharad * v[0]/totalw;
+			var vertdist = v[0];
+			positions[i][0]= Math.cos(beta)*v[0] + Math.sin(beta)*v[1];
+			positions[i][1] = -1*Math.sin(beta)*v[0]+Math.cos(beta)*v[1];
+		}
+	}
+      
+      function bencebend(positions, alpha){
+          var f = alpha/360.0;
+          var radius = totalw/ (2*3.1415*alpha/360.0);
+          f = f /radius;
+          for (var i = 0; i < positions.length; i++){
+            var v = positions[i];
+            positions[i][0] = (v[1]-radius) * Math.sin((v[0])*f);
+            positions[i][1] = (v[1]-radius) * Math.cos((v[0])*f) + radius;
+          }
+                  
+      }
+      
+      function mybend(positions, theta,totalw){
+          var radius = totalw/ (2*3.1415*theta/360.0);
+          
+        
+          for (var i = 0; i < positions.length; i++){
+            var v = positions[i];
+            var alpha = (2*3.1415*theta/360.0)*(v[0]/totalw);
+            
+            
+            positions[i][0] = Math.sin(alpha)*(radius+v[1]);
+            positions[i][1] = Math.cos(alpha)*(radius+v[1])-radius;
+          }
+                  
+      }
+      
+      if (bend>0) 	mybend(ccresult.positions, bend, totalw); 
 	CCtoMesh(brickwall, ccresult);
-		
+
 	return Solid.make(brickwall);
 }
